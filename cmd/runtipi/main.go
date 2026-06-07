@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/runtipi/cli/internal/commands"
 	"github.com/runtipi/cli/internal/config"
@@ -17,6 +18,23 @@ var (
 	commit    = "unknown"
 	buildDate = "unknown"
 )
+
+type appInstallFlags struct {
+	Port                    int
+	MaxBackups              int
+	Domain                  string
+	LocalSubdomain          string
+	Exposed                 bool
+	ExposedLocal            bool
+	OpenPort                bool
+	VisibleOnGuestDashboard bool
+	EnableAuth              bool
+	SkipEnv                 bool
+	SkipPull                bool
+	SkipRun                 bool
+	ForcePull               bool
+	SetOptions              []string
+}
 
 func init() {
 	var err error
@@ -66,6 +84,7 @@ func main() {
 	var updateArgs types.UpdateArgs
 	var appArgs types.AppArgs
 	var appStoreArgs types.AppStoreArgs
+	var appInstallArgs appInstallFlags
 
 	// Start command
 	startCmd := &cobra.Command{
@@ -192,6 +211,83 @@ func main() {
 		},
 	}
 
+	appInstallCmd := &cobra.Command{
+		Use:   "install [app-urn]",
+		Short: "Install an app",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			appArgs.Command = types.AppCommandInstall
+			appArgs.ID = args[0]
+			appArgs.InstallOptions = map[string]any{}
+
+			flags := cmd.Flags()
+			if flags.Changed("port") {
+				appArgs.InstallOptions["port"] = appInstallArgs.Port
+			}
+			if flags.Changed("max-backups") {
+				appArgs.InstallOptions["maxBackups"] = appInstallArgs.MaxBackups
+			}
+			if flags.Changed("domain") {
+				appArgs.InstallOptions["domain"] = appInstallArgs.Domain
+			}
+			if flags.Changed("local-subdomain") {
+				appArgs.InstallOptions["localSubdomain"] = appInstallArgs.LocalSubdomain
+			}
+			if flags.Changed("exposed") {
+				appArgs.InstallOptions["exposed"] = appInstallArgs.Exposed
+			}
+			if flags.Changed("exposed-local") {
+				appArgs.InstallOptions["exposedLocal"] = appInstallArgs.ExposedLocal
+			}
+			if flags.Changed("open-port") {
+				appArgs.InstallOptions["openPort"] = appInstallArgs.OpenPort
+			}
+			if flags.Changed("visible-on-guest-dashboard") {
+				appArgs.InstallOptions["isVisibleOnGuestDashboard"] = appInstallArgs.VisibleOnGuestDashboard
+			}
+			if flags.Changed("enable-auth") {
+				appArgs.InstallOptions["enableAuth"] = appInstallArgs.EnableAuth
+			}
+			if flags.Changed("skip-env") {
+				appArgs.InstallOptions["skipEnv"] = appInstallArgs.SkipEnv
+			}
+			if flags.Changed("skip-pull") {
+				appArgs.InstallOptions["skipPull"] = appInstallArgs.SkipPull
+			}
+			if flags.Changed("skip-run") {
+				appArgs.InstallOptions["skipRun"] = appInstallArgs.SkipRun
+			}
+			if flags.Changed("force-pull") {
+				appArgs.InstallOptions["forcePull"] = appInstallArgs.ForcePull
+			}
+
+			for _, option := range appInstallArgs.SetOptions {
+				key, value, ok := strings.Cut(option, "=")
+				if !ok || key == "" {
+					fmt.Printf("Error: invalid --set value %q. Expected key=value.\n", option)
+					os.Exit(1)
+				}
+				appArgs.InstallOptions[key] = value
+			}
+
+			commands.RunApp(appArgs)
+		},
+	}
+	appInstallCmd.Flags().IntVar(&appInstallArgs.Port, "port", 0, "Port to expose for the app")
+	appInstallCmd.Flags().IntVar(&appInstallArgs.MaxBackups, "max-backups", 0, "Maximum backups to keep for the app")
+	appInstallCmd.Flags().StringVar(&appInstallArgs.Domain, "domain", "", "Domain used when exposing the app on the internet")
+	appInstallCmd.Flags().StringVar(&appInstallArgs.LocalSubdomain, "local-subdomain", "", "Local subdomain used when exposing the app locally")
+	appInstallCmd.Flags().BoolVar(&appInstallArgs.Exposed, "exposed", false, "Expose the app on the internet")
+	appInstallCmd.Flags().BoolVar(&appInstallArgs.ExposedLocal, "exposed-local", false, "Expose the app on the local network")
+	appInstallCmd.Flags().BoolVar(&appInstallArgs.OpenPort, "open-port", true, "Open the app port")
+	appInstallCmd.Flags().BoolVar(&appInstallArgs.VisibleOnGuestDashboard, "visible-on-guest-dashboard", false, "Display the app on the guest dashboard")
+	appInstallCmd.Flags().BoolVar(&appInstallArgs.EnableAuth, "enable-auth", false, "Enable authentication for the app")
+	appInstallCmd.Flags().BoolVar(&appInstallArgs.SkipEnv, "skip-env", false, "Skip app environment generation")
+	appInstallCmd.Flags().BoolVar(&appInstallArgs.SkipPull, "skip-pull", false, "Skip pulling app images")
+	appInstallCmd.Flags().BoolVar(&appInstallArgs.SkipRun, "skip-run", false, "Skip starting the app after installation")
+	appInstallCmd.Flags().BoolVar(&appInstallArgs.ForcePull, "force-pull", false, "Force pulling app images")
+	appInstallCmd.Flags().StringArrayVar(&appInstallArgs.SetOptions, "set", nil, "Set an app-specific install form value as key=value. Can be used multiple times")
+
 	appUninstallCmd := &cobra.Command{
 		Use:   "uninstall [app-id]",
 		Short: "Uninstall an app",
@@ -292,6 +388,7 @@ func main() {
 
 	appCmd.AddCommand(appStartCmd)
 	appCmd.AddCommand(appStopCmd)
+	appCmd.AddCommand(appInstallCmd)
 	appCmd.AddCommand(appUninstallCmd)
 	appCmd.AddCommand(appResetCmd)
 	appCmd.AddCommand(appUpdateCmd)

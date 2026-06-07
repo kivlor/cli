@@ -15,6 +15,7 @@ type AppArgs struct {
 	Command        AppCommand
 	ID             string
 	BackupFilename string // Needed only for restore and delete backup commands it can be ommitted for other commands
+	InstallOptions map[string]any
 }
 
 // AppCommand represents the subcommands available for the app command
@@ -23,6 +24,7 @@ type AppCommand string
 const (
 	AppCommandStart        AppCommand = "start"
 	AppCommandStop         AppCommand = "stop"
+	AppCommandInstall      AppCommand = "install"
 	AppCommandUninstall    AppCommand = "uninstall"
 	AppCommandReset        AppCommand = "reset"
 	AppCommandUpdate       AppCommand = "update"
